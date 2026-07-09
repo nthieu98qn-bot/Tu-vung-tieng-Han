@@ -7,10 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260709-fix1" />
+  <link rel="stylesheet" href="styles.css?v=20260709-sheets1" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script defer src="firebase-config.js?v=20260709-fix1"></script>
-  <script defer src="app.js?v=20260709-fix1"></script>
+  <script defer src="google-sheets-config.js?v=20260709-sheets1"></script>
+  <script defer src="app.js?v=20260709-sheets1"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -374,17 +374,17 @@
           </div>
 
           <div class="form-card">
-            <p class="eyebrow">Đồng bộ cloud</p>
+            <p class="eyebrow">Đồng bộ Google Sheets</p>
             <h3>Đồng bộ tất cả thiết bị</h3>
-            <p class="hint">Sau khi cấu hình Firebase, từ vựng và tiến độ học sẽ được đồng bộ realtime. Máy tính và điện thoại chỉ cần mở cùng link/mã đồng bộ.</p>
+            <p class="hint">Dữ liệu sẽ lưu vào Google Sheets thông qua Apps Script. Máy tính và điện thoại chỉ cần mở cùng link/mã đồng bộ.</p>
             <label>Mã đồng bộ</label>
             <input id="syncIdInput" value="main" placeholder="Ví dụ: main hoặc hieu-main" />
             <div class="button-stack">
               <button class="primary" id="cloudConnectBtn">Kết nối đồng bộ</button>
-              <button class="soft" id="cloudPushBtn">Đẩy dữ liệu máy này lên cloud</button>
-              <button class="soft" id="cloudPullBtn">Tải dữ liệu từ cloud</button>
+              <button class="soft" id="cloudPushBtn">Đẩy dữ liệu lên Google Sheets</button>
+              <button class="soft" id="cloudPullBtn">Tải dữ liệu từ Google Sheets</button>
             </div>
-            <div id="cloudStatus" class="result-box">Chưa kết nối cloud. Hãy cấu hình firebase-config.js.</div>
+            <div id="cloudStatus" class="result-box">Chưa kết nối Google Sheets. Hãy cấu hình google-sheets-config.js.</div>
           </div>
 
           <div class="form-card">
@@ -396,7 +396,7 @@
               <button class="soft" id="copyTemplateBtn">Copy mẫu cột Excel</button>
               <button class="danger-soft" id="resetAppBtn">Xóa toàn bộ dữ liệu app</button>
             </div>
-            <p class="hint">Dữ liệu được lưu trong LocalStorage của trình duyệt. Khi đổi máy hoặc xóa cache, bạn nên xuất JSON/CSV để sao lưu.</p>
+            <p class="hint">Dữ liệu vẫn lưu tạm trong trình duyệt và có thể đồng bộ lên Google Sheets. Khi đổi máy, hãy dùng cùng mã đồng bộ rồi bấm tải dữ liệu.</p>
           </div>
         </div>
       </section>

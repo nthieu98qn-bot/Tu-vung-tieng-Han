@@ -47,17 +47,15 @@ let voices = [];
 let learnAutoNextTimer = null;
 let quizAutoNextTimer = null;
 let cloudPushTimer = null;
-let firebaseSdk = null;
+let cloudRefreshTimer = null;
 let cloudState = {
   enabled: false,
   connected: false,
   applyingRemote: false,
   syncId: getInitialSyncId(),
   deviceId: getDeviceId(),
-  app: null,
-  db: null,
-  docRef: null,
-  unsubscribe: null
+  endpoint: '',
+  lastRemoteUpdatedAtMs: 0
 };
 
 const els = {
@@ -219,10 +217,19 @@ function getInitialSyncId() {
   }
 }
 
-function hasFirebaseConfig() {
-  const config = window.HANGUL_FIREBASE_CONFIG;
-  if (!config || !config.apiKey || !config.projectId || !config.appId) return false;
-  return ![config.apiKey, config.projectId, config.appId].some(value => String(value).includes('PASTE_'));
+function getSheetsConfig() {
+  const config = window.HANGUL_SHEETS_CONFIG || {};
+  return {
+    endpoint: String(config.endpoint || '').trim(),
+    syncId: sanitizeSyncId(config.syncId || window.HANGUL_SYNC_ID || 'main'),
+    autoConnect: config.autoConnect !== false,
+    autoRefreshSeconds: Number(config.autoRefreshSeconds || 15)
+  };
+}
+
+function hasSheetsConfig() {
+  const { endpoint } = getSheetsConfig();
+  return endpoint && !endpoint.includes('PASTE_APPS_SCRIPT_WEB_APP_URL_HERE');
 }
 
 function updateCloudStatus(message, type = 'neutral') {
@@ -233,33 +240,16 @@ function updateCloudStatus(message, type = 'neutral') {
 }
 
 function renderCloudUi() {
-  if (els.syncIdInput) els.syncIdInput.value = cloudState.syncId;
+  const config = getSheetsConfig();
+  if (els.syncIdInput) els.syncIdInput.value = cloudState.syncId || config.syncId || 'main';
   if (!els.cloudStatus) return;
-  if (!hasFirebaseConfig()) {
-    updateCloudStatus('Chưa cấu hình Firebase. Hãy sửa file firebase-config.js rồi upload lại GitHub.', 'error');
+  if (!hasSheetsConfig()) {
+    updateCloudStatus('Chưa cấu hình Google Sheets. Hãy dán Apps Script Web App URL vào file google-sheets-config.js.', 'error');
     return;
   }
   updateCloudStatus(cloudState.connected
-    ? `Đã kết nối cloud. Mã đồng bộ: ${cloudState.syncId}`
-    : 'Đã có Firebase config. Bấm “Kết nối đồng bộ” để bắt đầu.');
-}
-
-async function loadFirebaseSdk() {
-  if (firebaseSdk) return firebaseSdk;
-  const [appModule, firestoreModule] = await Promise.all([
-    import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
-    import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
-  ]);
-  firebaseSdk = {
-    initializeApp: appModule.initializeApp,
-    getFirestore: firestoreModule.getFirestore,
-    doc: firestoreModule.doc,
-    getDoc: firestoreModule.getDoc,
-    setDoc: firestoreModule.setDoc,
-    onSnapshot: firestoreModule.onSnapshot,
-    serverTimestamp: firestoreModule.serverTimestamp
-  };
-  return firebaseSdk;
+    ? `Đã kết nối Google Sheets. Mã đồng bộ: ${cloudState.syncId}`
+    : 'Đã có Apps Script URL. Bấm “Kết nối đồng bộ” để bắt đầu.');
 }
 
 function buildCloudPayload() {
@@ -311,7 +301,7 @@ function normalizeCloudState(cloudData) {
   };
 }
 
-function applyCloudState(cloudData, source = 'cloud') {
+function applyCloudState(cloudData, source = 'Google Sheets') {
   const normalized = normalizeCloudState(cloudData);
   if (!normalized) return false;
   cloudState.applyingRemote = true;
@@ -327,95 +317,133 @@ function applyCloudState(cloudData, source = 'cloud') {
 }
 
 function scheduleCloudPush() {
-  if (!cloudState.connected || cloudState.applyingRemote || !cloudState.docRef) return;
+  if (!cloudState.connected || cloudState.applyingRemote || !cloudState.endpoint) return;
   clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(() => pushCloudState(false), 700);
+  cloudPushTimer = setTimeout(() => pushCloudState(false), 900);
+}
+
+async function sheetsRequest(payload, { method = 'POST' } = {}) {
+  const endpoint = cloudState.endpoint || getSheetsConfig().endpoint;
+  if (!endpoint) throw new Error('Chưa có Apps Script Web App URL.');
+
+  if (method === 'GET') {
+    const url = new URL(endpoint);
+    Object.entries(payload).forEach(([key, value]) => url.searchParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value)));
+    url.searchParams.set('_', String(Date.now()));
+    const response = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error('Apps Script không trả về JSON. Kiểm tra quyền Deploy Web App.'); }
+    if (!data.ok) throw new Error(data.error || 'Google Sheets trả về lỗi.');
+    return data;
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  const text = await response.text();
+  let data;
+  try { data = JSON.parse(text); } catch { throw new Error('Apps Script không trả về JSON. Nếu mới Deploy, hãy chọn quyền Anyone/Anyone with the link.'); }
+  if (!data.ok) throw new Error(data.error || 'Google Sheets trả về lỗi.');
+  return data;
 }
 
 async function pushCloudState(showMessage = true) {
-  if (!cloudState.connected || !cloudState.docRef || !firebaseSdk) return;
+  if (!cloudState.connected || !cloudState.endpoint) return;
   clearTimeout(cloudPushTimer);
   try {
-    await firebaseSdk.setDoc(cloudState.docRef, {
-      state: buildCloudPayload(),
+    const result = await sheetsRequest({
+      action: 'save',
       syncId: cloudState.syncId,
       updatedBy: cloudState.deviceId,
       updatedAtMs: Date.now(),
-      updatedAt: firebaseSdk.serverTimestamp()
-    }, { merge: true });
-    updateCloudStatus(`Đã lưu lên cloud. Mã đồng bộ: ${cloudState.syncId}`);
-    if (showMessage) toast('Đã đẩy dữ liệu lên cloud.');
+      state: buildCloudPayload()
+    });
+    cloudState.lastRemoteUpdatedAtMs = Number(result.updatedAtMs || Date.now());
+    updateCloudStatus(`Đã lưu lên Google Sheets. Mã đồng bộ: ${cloudState.syncId}`);
+    if (showMessage) toast('Đã đẩy dữ liệu lên Google Sheets.');
   } catch (error) {
     console.error(error);
-    updateCloudStatus(`Lỗi đẩy cloud: ${error.message}`, 'error');
-    if (showMessage) toast('Không đẩy được dữ liệu lên cloud.');
+    updateCloudStatus(`Lỗi đẩy Google Sheets: ${error.message}`, 'error');
+    if (showMessage) toast('Không đẩy được dữ liệu lên Google Sheets.');
   }
 }
 
 async function pullCloudState(showMessage = true) {
-  if (!cloudState.connected || !cloudState.docRef || !firebaseSdk) return;
+  if (!cloudState.connected || !cloudState.endpoint) return;
   try {
-    const snap = await firebaseSdk.getDoc(cloudState.docRef);
-    if (!snap.exists()) {
-      updateCloudStatus('Cloud chưa có dữ liệu. Có thể bấm “Đẩy dữ liệu máy này lên cloud”.');
+    const result = await sheetsRequest({ action: 'load', syncId: cloudState.syncId }, { method: 'GET' });
+    if (!result.exists) {
+      updateCloudStatus('Google Sheets chưa có dữ liệu. Có thể bấm “Đẩy dữ liệu máy này lên cloud”.');
       return;
     }
-    const ok = applyCloudState(snap.data(), 'cloud');
-    if (ok && showMessage) toast('Đã tải dữ liệu từ cloud.');
+    cloudState.lastRemoteUpdatedAtMs = Number(result.updatedAtMs || 0);
+    const ok = applyCloudState(result, 'Google Sheets');
+    if (ok && showMessage) toast('Đã tải dữ liệu từ Google Sheets.');
   } catch (error) {
     console.error(error);
-    updateCloudStatus(`Lỗi tải cloud: ${error.message}`, 'error');
-    if (showMessage) toast('Không tải được dữ liệu từ cloud.');
+    updateCloudStatus(`Lỗi tải Google Sheets: ${error.message}`, 'error');
+    if (showMessage) toast('Không tải được dữ liệu từ Google Sheets.');
+  }
+}
+
+async function checkCloudUpdates() {
+  if (!cloudState.connected || cloudState.applyingRemote || !cloudState.endpoint) return;
+  try {
+    const result = await sheetsRequest({ action: 'meta', syncId: cloudState.syncId }, { method: 'GET' });
+    if (!result.exists) return;
+    const remoteTime = Number(result.updatedAtMs || 0);
+    if (remoteTime && remoteTime > Number(cloudState.lastRemoteUpdatedAtMs || 0)) {
+      if (result.updatedBy === cloudState.deviceId) {
+        cloudState.lastRemoteUpdatedAtMs = remoteTime;
+        return;
+      }
+      await pullCloudState(false);
+      toast('Đã tự cập nhật dữ liệu từ thiết bị khác.');
+    }
+  } catch (error) {
+    console.warn('Auto refresh failed', error);
   }
 }
 
 async function connectCloudSync(manual = false) {
-  if (!hasFirebaseConfig()) {
-    updateCloudStatus('Chưa cấu hình Firebase. Hãy điền thông tin trong firebase-config.js.', 'error');
-    if (manual) toast('Chưa cấu hình Firebase.');
+  const config = getSheetsConfig();
+  if (!hasSheetsConfig()) {
+    updateCloudStatus('Chưa cấu hình Google Sheets. Hãy dán Apps Script Web App URL vào google-sheets-config.js.', 'error');
+    if (manual) toast('Chưa cấu hình Google Sheets.');
     return;
   }
 
-  cloudState.syncId = sanitizeSyncId(els.syncIdInput?.value || cloudState.syncId || 'main');
+  cloudState.syncId = sanitizeSyncId(els.syncIdInput?.value || cloudState.syncId || config.syncId || 'main');
+  cloudState.endpoint = config.endpoint;
   if (els.syncIdInput) els.syncIdInput.value = cloudState.syncId;
   localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify({ syncId: cloudState.syncId }));
-  updateCloudStatus('Đang kết nối cloud...');
+  updateCloudStatus('Đang kết nối Google Sheets...');
 
   try {
-    const sdk = await loadFirebaseSdk();
-    if (cloudState.unsubscribe) cloudState.unsubscribe();
-    cloudState.app = cloudState.app || sdk.initializeApp(window.HANGUL_FIREBASE_CONFIG);
-    cloudState.db = sdk.getFirestore(cloudState.app);
-    cloudState.docRef = sdk.doc(cloudState.db, 'hangulDecks', cloudState.syncId);
     cloudState.connected = true;
-
-    const firstSnap = await sdk.getDoc(cloudState.docRef);
-    if (firstSnap.exists()) {
-      applyCloudState(firstSnap.data(), 'cloud');
+    const result = await sheetsRequest({ action: 'load', syncId: cloudState.syncId }, { method: 'GET' });
+    if (result.exists) {
+      cloudState.lastRemoteUpdatedAtMs = Number(result.updatedAtMs || 0);
+      applyCloudState(result, 'Google Sheets');
     } else {
       await pushCloudState(false);
     }
 
-    cloudState.unsubscribe = sdk.onSnapshot(cloudState.docRef, (snapshot) => {
-      if (!snapshot.exists()) return;
-      const data = snapshot.data();
-      if (data.updatedBy === cloudState.deviceId) {
-        updateCloudStatus(`Đã kết nối cloud. Mã đồng bộ: ${cloudState.syncId}`);
-        return;
-      }
-      applyCloudState(data, 'thiết bị khác');
-    }, (error) => {
-      console.error(error);
-      updateCloudStatus(`Lỗi realtime cloud: ${error.message}`, 'error');
-    });
+    clearInterval(cloudRefreshTimer);
+    const refreshMs = Math.max(5, Number(config.autoRefreshSeconds || 15)) * 1000;
+    cloudRefreshTimer = setInterval(checkCloudUpdates, refreshMs);
 
-    updateCloudStatus(`Đã kết nối cloud. Mã đồng bộ: ${cloudState.syncId}`);
-    if (manual) toast('Đã bật đồng bộ cloud.');
+    updateCloudStatus(`Đã kết nối Google Sheets. Mã đồng bộ: ${cloudState.syncId}`);
+    if (manual) toast('Đã bật đồng bộ Google Sheets.');
   } catch (error) {
     console.error(error);
     cloudState.connected = false;
-    updateCloudStatus(`Không kết nối được cloud: ${error.message}`, 'error');
-    if (manual) toast('Không kết nối được cloud.');
+    updateCloudStatus(`Không kết nối được Google Sheets: ${error.message}`, 'error');
+    if (manual) toast('Không kết nối được Google Sheets.');
   }
 }
 
@@ -1740,7 +1768,7 @@ function bindEvents() {
       els.syncIdInput.value = cloudState.syncId;
       localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify({ syncId: cloudState.syncId }));
       cloudState.connected = false;
-      if (cloudState.unsubscribe) cloudState.unsubscribe();
+      clearInterval(cloudRefreshTimer);
       renderCloudUi();
     });
   }
@@ -1778,7 +1806,7 @@ function showStartupError(error) {
   console.error(error);
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:99999;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:14px;padding:14px;font:14px system-ui, sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.12)';
-  box.innerHTML = `<strong>Lỗi tải app.js</strong><br>${escapeHtml(error.message || String(error))}<br><small>Hãy thay đủ index.html, app.js, styles.css, firebase-config.js rồi Ctrl + F5.</small>`;
+  box.innerHTML = `<strong>Lỗi tải app.js</strong><br>${escapeHtml(error.message || String(error))}<br><small>Hãy thay đủ index.html, app.js, styles.css, google-sheets-config.js rồi Ctrl + F5.</small>`;
   document.body.appendChild(box);
 }
 
@@ -1787,7 +1815,8 @@ function initApp() {
     bindEvents();
     renderAll();
     checkAiHealth();
-    connectCloudSync(false);
+    renderCloudUi();
+    if (getSheetsConfig().autoConnect) connectCloudSync(false);
   } catch (error) {
     showStartupError(error);
   }
