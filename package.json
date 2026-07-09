@@ -1,0 +1,28 @@
+{
+  "name": "korean-quizlet-ai",
+  "version": "1.0.0",
+  "description": "Quizlet-style Korean learning app with manual vocabulary entry, Excel import, flashcards, Korean/Vietnamese TTS, and AI meaning suggestions.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "korean",
+    "flashcards",
+    "quizlet",
+    "vietnamese",
+    "tts",
+    "openai"
+  ],
+  "license": "MIT"
+}
