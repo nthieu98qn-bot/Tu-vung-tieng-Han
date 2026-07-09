@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Bản dễ dùng: chỉ cho đọc/ghi tài liệu đồng bộ có id là "main".
+    // Nếu bạn đổi window.HANGUL_SYNC_ID thành tên khác, đổi "main" bên dưới theo đúng tên đó.
+    match /hangulDecks/main {
+      allow read, write: if true;
+    }
+  }
+}
