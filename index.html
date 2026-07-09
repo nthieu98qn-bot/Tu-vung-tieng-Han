@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hangul Deck - Korean Flashcards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script defer src="firebase-config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">ㅎ</div>
+        <div>
+          <h1>Hangul Deck</h1>
+          <p>Quizlet-style Korean</p>
+        </div>
+      </div>
+
+      <button class="primary full" id="newDeckBtn">+ Tạo bộ từ mới</button>
+
+      <div class="sidebar-title">Bộ từ của bạn</div>
+      <div id="deckList" class="deck-list"></div>
+
+      <div class="sidebar-footer">
+        <div class="mini-stat"><span id="totalDecks">0</span><small>bộ từ</small></div>
+        <div class="mini-stat"><span id="totalCards">0</span><small>từ vựng</small></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Học tiếng Hàn cùng flashcard</p>
+          <h2 id="activeDeckName">Bộ từ</h2>
+        </div>
+        <div class="top-actions">
+          <label class="search-box">
+            <span>⌕</span>
+            <input id="searchInput" type="search" placeholder="Tìm từ / nghĩa..." />
+          </label>
+          <button class="ghost" id="renameDeckBtn">Đổi tên</button>
+          <button class="danger-soft" id="deleteDeckBtn">Xóa bộ</button>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="App sections">
+        <button class="tab active" data-tab="learn">Học</button>
+        <button class="tab" data-tab="flash">Flashcard</button>
+        <button class="tab" data-tab="review">Ôn tập</button>
+        <button class="tab" data-tab="quiz">Trắc nghiệm</button>
+        <button class="tab" data-tab="add">Thêm từ</button>
+        <button class="tab" data-tab="library">Danh sách</button>
+        <button class="tab" data-tab="import">Excel / Xuất file</button>
+      </nav>
+
+      <section id="learnTab" class="tab-panel active">
+        <div class="learn-layout">
+          <section class="learn-card">
+            <div class="mode-header">
+              <div>
+                <p class="eyebrow">Chế độ học</p>
+                <h3 id="learnModeTitle">Nhập nghĩa tiếng Việt</h3>
+              </div>
+              <div class="score-pill"><span id="learnCounter">0 / 0</span></div>
+            </div>
+
+            <div class="learn-question">
+              <p class="face-label" id="learnPromptLabel">Tiếng Hàn</p>
+              <div class="korean-word" id="learnKorean">한국어</div>
+              <button class="soft" id="learnSpeakBtn">🔊 Đọc từ</button>
+            </div>
+
+            <label for="learnAnswerInput" id="learnAnswerLabel">Nhập nghĩa tiếng Việt</label>
+            <div class="answer-row">
+              <input id="learnAnswerInput" placeholder="Ví dụ: nỗ lực, cố gắng" autocomplete="off" />
+              <button class="primary" id="learnCheckBtn">Kiểm tra</button>
+            </div>
+
+            <div id="learnFeedback" class="feedback hidden"></div>
+
+            <div class="mode-actions">
+              <button class="ghost" id="learnRevealBtn">Không nhớ / Hiện đáp án</button>
+              <button class="soft" id="learnNextBtn">Câu tiếp theo</button>
+              <button class="danger-soft" id="learnResetBtn">Học lại từ đầu</button>
+            </div>
+          </section>
+
+          <aside class="study-panel">
+            <div class="panel-card stat-card">
+              <h3>Tiến độ học</h3>
+              <div class="stat-grid">
+                <div><strong id="learnCorrect">0</strong><span>đúng</span></div>
+                <div><strong id="learnWrong">0</strong><span>cần ôn</span></div>
+              </div>
+              <p id="learnModeDescription">Chế độ này giống phần Learn của Quizlet: nhìn từ tiếng Hàn, tự nhập nghĩa tiếng Việt rồi kiểm tra.</p>
+            </div>
+
+            <div class="panel-card">
+              <h3>Cài đặt chế độ học</h3>
+              <label>Kiểu nhập đáp án
+                <select id="learnModeSelect">
+                  <option value="ko-vi">Hiện tiếng Hàn → nhập nghĩa tiếng Việt</option>
+                  <option value="vi-ko">Hiện nghĩa tiếng Việt → nhập từ tiếng Hàn</option>
+                </select>
+              </label>
+
+              <label class="toggle-row">
+                <input id="learnAutoSpeakToggle" type="checkbox" checked />
+                <span>Tự động đọc khi sang câu mới</span>
+              </label>
+
+              <label>Ngôn ngữ tự đọc
+                <select id="learnAutoSpeakLang">
+                  <option value="auto">Tự động theo chế độ học</option>
+                  <option value="ko">Luôn đọc tiếng Hàn</option>
+                  <option value="vi">Luôn đọc tiếng Việt</option>
+                  <option value="both">Đọc cả tiếng Hàn và tiếng Việt</option>
+                </select>
+              </label>
+
+              <p class="hint">Đổi chế độ sẽ reset tiến độ phần Học nhưng không xóa từ vựng. Tự động đọc có thể chọn tiếng Hàn, tiếng Việt hoặc cả hai.</p>
+            </div>
+
+            <div class="panel-card keyboard-help">
+              <h3>Phím tắt</h3>
+              <p><kbd>Enter</kbd> kiểm tra / câu tiếp theo</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="flashTab" class="tab-panel">
+        <div class="flash-layout">
+          <section class="card-stage">
+            <div class="progress-row">
+              <div>
+                <strong id="cardCounter">0 / 0</strong>
+                <span id="cardMeta">Nhấn vào thẻ để lật</span>
+              </div>
+              <div class="progress-bar"><span id="progressFill"></span></div>
+            </div>
+
+            <article class="flashcard" id="flashcard" tabindex="0" aria-label="Flashcard, click to flip">
+              <div class="flashcard-inner" id="flashcardInner">
+                <div class="flash-face flash-front">
+                  <p class="face-label">Tiếng Hàn</p>
+                  <div class="korean-word" id="frontKorean">추가하세요</div>
+                </div>
+                <div class="flash-face flash-back">
+                  <p class="face-label">Nghĩa tiếng Việt</p>
+                  <div class="meaning" id="backMeaning">Chưa có dữ liệu</div>
+                </div>
+              </div>
+            </article>
+
+            <div class="flash-actions">
+              <button class="ghost circle" id="prevBtn" title="Từ trước">‹</button>
+              <button class="ghost" id="flipBtn">Lật thẻ</button>
+              <button class="ghost circle" id="nextBtn" title="Từ sau">›</button>
+            </div>
+
+            <div class="speech-actions">
+              <button class="soft" id="speakKoBtn">🔊 Đọc Hàn</button>
+              <button class="soft" id="speakViBtn">🔊 Đọc Việt</button>
+              <button class="soft" id="speakBothBtn">🔊 Đọc cả 2</button>
+            </div>
+          </section>
+
+          <aside class="study-panel">
+            <div class="panel-card">
+              <h3>Tự động chạy</h3>
+              <p>Flashcard sẽ tự lật và chuyển sang từ tiếp theo.</p>
+              <div class="control-grid">
+                <label>
+                  Tốc độ
+                  <select id="speedSelect">
+                    <option value="3">3 giây</option>
+                    <option value="5" selected>5 giây</option>
+                    <option value="8">8 giây</option>
+                    <option value="12">12 giây</option>
+                  </select>
+                </label>
+                <label>
+                  Kiểu đọc
+                  <select id="autoSpeakMode">
+                    <option value="none">Không tự đọc</option>
+                    <option value="ko">Chỉ tiếng Hàn</option>
+                    <option value="both" selected>Hàn + Việt</option>
+                  </select>
+                </label>
+              </div>
+              <button class="primary full" id="autoPlayBtn">▶ Bắt đầu tự chạy</button>
+            </div>
+
+            <div class="panel-card">
+              <h3>Tùy chọn học</h3>
+              <div class="toggle-row">
+                <span>Trộn thứ tự</span>
+                <label class="switch">
+                  <input id="shuffleToggle" type="checkbox" />
+                  <span></span>
+                </label>
+              </div>
+              <button class="soft full" id="resetProgressBtn">Đưa về từ đầu</button>
+            </div>
+
+            <div class="panel-card keyboard-help">
+              <h3>Phím tắt</h3>
+              <p><kbd>Space</kbd> lật thẻ · <kbd>←</kbd> trước · <kbd>→</kbd> sau</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="reviewTab" class="tab-panel">
+        <div class="learn-layout">
+          <section class="learn-card">
+            <div class="mode-header">
+              <div>
+                <p class="eyebrow">Ôn tập</p>
+                <h3>Tự đánh dấu từ đã nhớ</h3>
+              </div>
+              <div class="score-pill"><span id="reviewCounter">0 / 0</span></div>
+            </div>
+
+            <div class="review-card-box">
+              <p class="face-label">Tiếng Hàn</p>
+              <div class="korean-word" id="reviewKorean">한국어</div>
+              <div class="review-meaning hidden" id="reviewMeaning">Nghĩa</div>
+            </div>
+
+            <div class="mode-actions">
+              <button class="soft" id="reviewShowBtn">Hiện nghĩa</button>
+              <button class="primary" id="reviewKnownBtn">Biết rồi</button>
+              <button class="danger-soft" id="reviewHardBtn">Chưa nhớ</button>
+              <button class="ghost" id="reviewResetBtn">Ôn lại toàn bộ</button>
+            </div>
+          </section>
+
+          <aside class="study-panel">
+            <div class="panel-card stat-card">
+              <h3>Kết quả ôn tập</h3>
+              <div class="stat-grid">
+                <div><strong id="reviewKnownCount">0</strong><span>đã nhớ</span></div>
+                <div><strong id="reviewHardCount">0</strong><span>cần ôn</span></div>
+              </div>
+              <p>Từ nào bạn bấm “Chưa nhớ” sẽ được đánh dấu để bạn ưu tiên học lại.</p>
+            </div>
+            <div class="panel-card">
+              <h3>Từ cần ôn</h3>
+              <div id="hardList" class="mini-list"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="quizTab" class="tab-panel">
+        <div class="learn-layout">
+          <section class="learn-card">
+            <div class="mode-header">
+              <div>
+                <p class="eyebrow">Trắc nghiệm</p>
+                <h3>Chọn nghĩa đúng</h3>
+              </div>
+              <div class="score-pill"><span id="quizScore">0 / 0</span></div>
+            </div>
+
+            <div class="quiz-question">
+              <p class="face-label">Từ tiếng Hàn</p>
+              <div class="korean-word" id="quizKorean">한국어</div>
+              <button class="soft" id="quizSpeakBtn">🔊 Đọc từ</button>
+            </div>
+
+            <div id="quizOptions" class="quiz-options"></div>
+            <div id="quizFeedback" class="feedback hidden"></div>
+
+            <div class="mode-actions">
+              <button class="soft" id="quizNextBtn">Câu tiếp theo</button>
+              <button class="danger-soft" id="quizResetBtn">Làm lại trắc nghiệm</button>
+            </div>
+          </section>
+
+          <aside class="study-panel">
+            <div class="panel-card stat-card">
+              <h3>Điểm trắc nghiệm</h3>
+              <div class="stat-grid">
+                <div><strong id="quizCorrect">0</strong><span>đúng</span></div>
+                <div><strong id="quizAnswered">0</strong><span>đã làm</span></div>
+              </div>
+              <p>App tự lấy nghĩa tiếng Việt của các từ khác để tạo đáp án nhiễu.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="addTab" class="tab-panel">
+        <div class="two-column">
+          <form class="form-card" id="vocabForm">
+            <div class="form-header">
+              <div>
+                <p class="eyebrow">Thêm thủ công</p>
+                <h3 id="formTitle">Thêm từ mới</h3>
+              </div>
+              <button type="button" class="ghost" id="clearFormBtn">Làm mới</button>
+            </div>
+
+            <label>Tiếng Hàn *</label>
+            <div class="ai-row">
+              <input id="koreanInput" required placeholder="예: 노력하다" autocomplete="off" />
+              <button type="button" class="ai-btn" id="aiSuggestBtn">✨ Gợi ý AI</button>
+            </div>
+
+            <label>Nghĩa tiếng Việt *</label>
+            <textarea id="vietnameseInput" required rows="6" placeholder="Ví dụ: nỗ lực, cố gắng"></textarea>
+
+            <button class="primary full" type="submit" id="saveCardBtn">Lưu từ vựng</button>
+            <p class="hint" id="aiStatus">AI cần chạy server với OPENAI_API_KEY.</p>
+          </form>
+
+          <div class="preview-column">
+            <div class="panel-card large-preview">
+              <p class="face-label">Xem trước</p>
+              <div class="korean-word" id="previewKorean">한국어</div>
+              <div class="meaning" id="previewMeaning">Nghĩa tiếng Việt sẽ hiện ở đây.</div>
+            </div>
+            <div class="panel-card">
+              <h3>Gợi ý cột Excel</h3>
+              <p>File Excel nên có 2 cột: <strong>Korean</strong> và <strong>Vietnamese</strong>.</p>
+              <p>Nếu không có tiêu đề cột, app sẽ lấy cột 1 là tiếng Hàn, cột 2 là nghĩa tiếng Việt.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="libraryTab" class="tab-panel">
+        <div class="library-header">
+          <div>
+            <p class="eyebrow">Quản lý từ vựng</p>
+            <h3 id="libraryTitle">Danh sách từ</h3>
+          </div>
+          <div class="library-actions">
+            <button class="soft" id="sortAzBtn">Sắp xếp A-Z</button>
+            <button class="soft" id="deleteSelectedBtn">Xóa đã chọn</button>
+          </div>
+        </div>
+        <div id="cardsTable" class="cards-table"></div>
+      </section>
+
+      <section id="importTab" class="tab-panel">
+        <div class="two-column">
+          <div class="form-card">
+            <p class="eyebrow">Nhập bằng file</p>
+            <h3>Import Excel / CSV</h3>
+            <div class="upload-zone" id="uploadZone">
+              <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+              <div>
+                <div class="upload-icon">⇪</div>
+                <strong>Kéo file vào đây hoặc bấm để chọn</strong>
+                <p>Hỗ trợ .xlsx, .xls, .csv. Dữ liệu sẽ được thêm vào bộ từ đang chọn.</p>
+              </div>
+            </div>
+            <div class="import-options">
+              <label class="checkbox-line"><input id="skipDuplicateToggle" type="checkbox" checked /> Bỏ qua từ bị trùng tiếng Hàn</label>
+              <label class="checkbox-line"><input id="autoTrimToggle" type="checkbox" checked /> Tự xóa khoảng trắng thừa</label>
+            </div>
+            <div id="importResult" class="result-box hidden"></div>
+          </div>
+
+          <div class="form-card">
+            <p class="eyebrow">Đồng bộ cloud</p>
+            <h3>Đồng bộ tất cả thiết bị</h3>
+            <p class="hint">Sau khi cấu hình Firebase, từ vựng và tiến độ học sẽ được đồng bộ realtime. Máy tính và điện thoại chỉ cần mở cùng link/mã đồng bộ.</p>
+            <label>Mã đồng bộ</label>
+            <input id="syncIdInput" value="main" placeholder="Ví dụ: main hoặc hieu-main" />
+            <div class="button-stack">
+              <button class="primary" id="cloudConnectBtn">Kết nối đồng bộ</button>
+              <button class="soft" id="cloudPushBtn">Đẩy dữ liệu máy này lên cloud</button>
+              <button class="soft" id="cloudPullBtn">Tải dữ liệu từ cloud</button>
+            </div>
+            <div id="cloudStatus" class="result-box">Chưa kết nối cloud. Hãy cấu hình firebase-config.js.</div>
+          </div>
+
+          <div class="form-card">
+            <p class="eyebrow">Sao lưu dữ liệu</p>
+            <h3>Xuất / nhập dữ liệu</h3>
+            <div class="button-stack">
+              <button class="primary" id="exportJsonBtn">Xuất toàn bộ JSON</button>
+              <button class="soft" id="exportCsvBtn">Xuất bộ hiện tại CSV</button>
+              <button class="soft" id="copyTemplateBtn">Copy mẫu cột Excel</button>
+              <button class="danger-soft" id="resetAppBtn">Xóa toàn bộ dữ liệu app</button>
+            </div>
+            <p class="hint">Dữ liệu được lưu trong LocalStorage của trình duyệt. Khi đổi máy hoặc xóa cache, bạn nên xuất JSON/CSV để sao lưu.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</body>
+</html>
