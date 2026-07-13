@@ -30,11 +30,11 @@ const sampleData = {
       name: 'TOPIK tiếng Hàn cơ bản',
       createdAt: new Date().toISOString(),
       cards: [
-        { id: makeId(), korean: '노력하다', vietnamese: 'nỗ lực, cố gắng', starred: false, createdAt: new Date().toISOString() },
-        { id: makeId(), korean: '졸업하다', vietnamese: 'tốt nghiệp', starred: false, createdAt: new Date().toISOString() },
-        { id: makeId(), korean: '기계공학', vietnamese: 'ngành kỹ thuật cơ khí', starred: false, createdAt: new Date().toISOString() },
-        { id: makeId(), korean: '지원하다', vietnamese: 'ứng tuyển, hỗ trợ', starred: false, createdAt: new Date().toISOString() },
-        { id: makeId(), korean: '경험', vietnamese: 'kinh nghiệm, trải nghiệm', starred: false, createdAt: new Date().toISOString() }
+        { id: makeId(), korean: '노력하다', vietnamese: 'nỗ lực, cố gắng', exampleKo: '그는 목표를 위해 노력하고 있어요.', starred: false, createdAt: new Date().toISOString() },
+        { id: makeId(), korean: '졸업하다', vietnamese: 'tốt nghiệp', exampleKo: '저는 내년에 대학교를 졸업합니다.', starred: false, createdAt: new Date().toISOString() },
+        { id: makeId(), korean: '기계공학', vietnamese: 'ngành kỹ thuật cơ khí', exampleKo: '저는 기계공학을 전공하고 있습니다.', starred: false, createdAt: new Date().toISOString() },
+        { id: makeId(), korean: '지원하다', vietnamese: 'ứng tuyển, hỗ trợ', exampleKo: '저는 그 회사에 지원하려고 합니다.', starred: false, createdAt: new Date().toISOString() },
+        { id: makeId(), korean: '경험', vietnamese: 'kinh nghiệm, trải nghiệm', exampleKo: '한국에서 다양한 경험을 했습니다.', starred: false, createdAt: new Date().toISOString() }
       ]
     }
   ]
@@ -71,6 +71,7 @@ const els = {
   progressFill: $('#progressFill'),
   flashcard: $('#flashcard'),
   frontKorean: $('#frontKorean'),
+  frontExample: $('#frontExample'),
   backMeaning: $('#backMeaning'),
   speedSelect: $('#speedSelect'),
   autoSpeakMode: $('#autoSpeakMode'),
@@ -79,6 +80,7 @@ const els = {
 
   learnCounter: $('#learnCounter'),
   learnKorean: $('#learnKorean'),
+  learnExample: $('#learnExample'),
   learnAnswerInput: $('#learnAnswerInput'),
   learnFeedback: $('#learnFeedback'),
   learnCorrect: $('#learnCorrect'),
@@ -93,6 +95,7 @@ const els = {
 
   reviewCounter: $('#reviewCounter'),
   reviewKorean: $('#reviewKorean'),
+  reviewExample: $('#reviewExample'),
   reviewMeaning: $('#reviewMeaning'),
   reviewKnownCount: $('#reviewKnownCount'),
   reviewHardCount: $('#reviewHardCount'),
@@ -100,6 +103,7 @@ const els = {
 
   quizScore: $('#quizScore'),
   quizKorean: $('#quizKorean'),
+  quizExample: $('#quizExample'),
   quizOptions: $('#quizOptions'),
   quizFeedback: $('#quizFeedback'),
   quizCorrect: $('#quizCorrect'),
@@ -111,9 +115,11 @@ const els = {
   formTitle: $('#formTitle'),
   koreanInput: $('#koreanInput'),
   vietnameseInput: $('#vietnameseInput'),
+  exampleInput: $('#exampleInput'),
   saveCardBtn: $('#saveCardBtn'),
   aiSuggestBtn: $('#aiSuggestBtn'),
   previewKorean: $('#previewKorean'),
+  previewExample: $('#previewExample'),
   previewMeaning: $('#previewMeaning'),
   aiStatus: $('#aiStatus'),
   importResult: $('#importResult'),
@@ -132,6 +138,7 @@ function normalizeCard(card) {
     id: card.id || makeId(),
     korean: String(card.korean || card.Korean || card['Tiếng Hàn'] || card['한국어'] || '').trim(),
     vietnamese: String(card.vietnamese || card.Vietnamese || card['Nghĩa'] || card['Nghĩa tiếng Việt'] || card['베트남어'] || '').trim(),
+    exampleKo: String(card.exampleKo || card.ExampleKo || card.example || card.Example || card['Câu ví dụ'] || card['Câu ví dụ tiếng Hàn'] || card['Ví dụ tiếng Hàn'] || card['예문'] || '').trim(),
     starred: Boolean(card.starred),
     createdAt: card.createdAt || new Date().toISOString(),
     updatedAt: card.updatedAt
@@ -462,7 +469,7 @@ function activeCards() {
   const deck = activeDeck();
   const query = els.searchInput.value.trim().toLowerCase();
   if (!query) return deck.cards;
-  return deck.cards.filter(card => [card.korean, card.vietnamese]
+  return deck.cards.filter(card => [card.korean, card.vietnamese, card.exampleKo]
     .some(value => String(value || '').toLowerCase().includes(query)));
 }
 
@@ -590,6 +597,14 @@ function currentCard() {
   return getCardById(id);
 }
 
+
+function setExampleText(element, text) {
+  if (!element) return;
+  const value = String(text || '').trim();
+  element.textContent = value;
+  element.classList.toggle('hidden', !value);
+}
+
 function renderFlashcard() {
   ensureStudyOrder();
   const card = currentCard();
@@ -603,11 +618,13 @@ function renderFlashcard() {
 
   if (!card) {
     els.frontKorean.textContent = '빈 카드';
+    setExampleText(els.frontExample, '');
     els.backMeaning.textContent = 'Hãy thêm từ mới để bắt đầu học.';
     return;
   }
 
   els.frontKorean.textContent = card.korean;
+  setExampleText(els.frontExample, card.exampleKo);
   els.backMeaning.textContent = card.vietnamese || 'Chưa có nghĩa';
 }
 
@@ -856,12 +873,14 @@ function renderLearn() {
 
   if (!card) {
     els.learnKorean.textContent = config.emptyPrompt;
+    setExampleText(els.learnExample, '');
     els.learnAnswerInput.value = '';
     setFeedback(els.learnFeedback, 'neutral', 'Hãy thêm từ mới hoặc import Excel để học.');
     return;
   }
 
   els.learnKorean.textContent = config.prompt;
+  setExampleText(els.learnExample, currentLearnMode() === 'ko-vi' ? card.exampleKo : '');
   if (!state.learn.checked) els.learnFeedback.classList.add('hidden');
 }
 
@@ -997,10 +1016,12 @@ function renderReview() {
 
   if (!card) {
     els.reviewKorean.textContent = '빈 카드';
+    setExampleText(els.reviewExample, '');
     els.reviewMeaning.textContent = 'Hãy thêm từ mới để ôn tập.';
     els.reviewMeaning.classList.remove('hidden');
   } else {
     els.reviewKorean.textContent = card.korean;
+    setExampleText(els.reviewExample, card.exampleKo);
     els.reviewMeaning.textContent = card.vietnamese || 'Chưa có nghĩa';
     els.reviewMeaning.classList.toggle('hidden', !state.review.showing);
   }
@@ -1102,12 +1123,14 @@ function renderQuiz() {
 
   if (!card) {
     els.quizKorean.textContent = '빈 카드';
+    setExampleText(els.quizExample, '');
     els.quizOptions.innerHTML = '<div class="empty-state"><strong>Chưa có từ để làm trắc nghiệm</strong><span>Hãy thêm từ hoặc import Excel.</span></div>';
     els.quizFeedback.classList.add('hidden');
     return;
   }
 
   els.quizKorean.textContent = card.korean;
+  setExampleText(els.quizExample, card.exampleKo);
   const options = quizOptionsFor(card);
   if (total < 2) {
     els.quizOptions.innerHTML = '<div class="empty-state"><strong>Cần ít nhất 2 từ</strong><span>Thêm thêm từ để có đáp án nhiễu.</span></div>';
@@ -1186,14 +1209,14 @@ function renderCardsTable() {
   els.cardsTable.innerHTML = `
     <div class="card-row header">
       <div><input type="checkbox" id="selectAllCards" ${cards.every(card => state.selectedCards.includes(card.id)) ? 'checked' : ''}></div>
-      <div>Tiếng Hàn</div>
+      <div>Tiếng Hàn / Ví dụ</div>
       <div>Nghĩa tiếng Việt</div>
       <div></div>
     </div>
     ${cards.map(card => `
       <div class="card-row" data-card-id="${card.id}">
         <div><input class="card-check" type="checkbox" ${state.selectedCards.includes(card.id) ? 'checked' : ''}></div>
-        <div class="ko-cell">${escapeHtml(card.korean)}</div>
+        <div class="ko-cell"><strong>${escapeHtml(card.korean)}</strong>${card.exampleKo ? `<small>${escapeHtml(card.exampleKo)}</small>` : ""}</div>
         <div class="vi-cell">${escapeHtml(card.vietnamese)}</div>
         <div class="row-actions">
           <button class="icon-btn star-row ${card.starred ? 'starred' : ''}" title="Đánh dấu">★</button>
@@ -1232,6 +1255,7 @@ function renderCardsTable() {
 
 function renderPreview() {
   els.previewKorean.textContent = els.koreanInput.value.trim() || '한국어';
+  setExampleText(els.previewExample, els.exampleInput.value.trim());
   els.previewMeaning.textContent = els.vietnameseInput.value.trim() || 'Nghĩa tiếng Việt sẽ hiện ở đây.';
 }
 
@@ -1246,13 +1270,15 @@ function clearForm() {
 function readForm() {
   return {
     korean: els.koreanInput.value.trim(),
-    vietnamese: els.vietnameseInput.value.trim()
+    vietnamese: els.vietnameseInput.value.trim(),
+    exampleKo: els.exampleInput.value.trim()
   };
 }
 
 function fillForm(card) {
   els.koreanInput.value = card.korean || '';
   els.vietnameseInput.value = card.vietnamese || '';
+  els.exampleInput.value = card.exampleKo || '';
   renderPreview();
 }
 
@@ -1486,6 +1512,7 @@ function rowToCard(row, headers = null, trim = true) {
   const clean = value => trim ? String(value ?? '').trim() : String(value ?? '');
   let korean = '';
   let vietnamese = '';
+  let exampleKo = '';
 
   if (headers) {
     const object = {};
@@ -1494,20 +1521,22 @@ function rowToCard(row, headers = null, trim = true) {
     });
     korean = clean(object.korean || object['tiếng hàn'] || object['tieng han'] || object['한국어'] || object.han || row[0]);
     vietnamese = clean(object.vietnamese || object['nghĩa'] || object['nghia'] || object['nghĩa tiếng việt'] || object['nghia tieng viet'] || object['베트남어'] || object.vi || row[1]);
+    exampleKo = clean(object.exampleko || object.example || object['example ko'] || object['câu ví dụ'] || object['cau vi du'] || object['ví dụ tiếng hàn'] || object['vi du tieng han'] || object['예문'] || row[2]);
   } else {
     korean = clean(row[0]);
     vietnamese = clean(row[1]);
+    exampleKo = clean(row[2]);
   }
 
   if (!korean || !vietnamese) return null;
-  return { id: makeId(), korean, vietnamese, starred: false, createdAt: new Date().toISOString() };
+  return { id: makeId(), korean, vietnamese, exampleKo, starred: false, createdAt: new Date().toISOString() };
 }
 
 function rowsToCards(rows) {
   if (!rows?.length) return [];
   const autoTrim = $('#autoTrimToggle').checked;
   const firstRow = rows[0].map(value => String(value || '').trim().toLowerCase());
-  const hasHeader = firstRow.some(value => ['korean', 'vietnamese', 'tiếng hàn', 'tieng han', 'nghĩa', 'nghia'].includes(value));
+  const hasHeader = firstRow.some(value => ['korean', 'vietnamese', 'exampleko', 'example', 'tiếng hàn', 'tieng han', 'nghĩa', 'nghia', 'câu ví dụ', 'cau vi du', '예문'].includes(value));
   const headers = hasHeader ? rows[0] : null;
   const dataRows = hasHeader ? rows.slice(1) : rows;
   return dataRows.map(row => rowToCard(row, headers, autoTrim)).filter(Boolean);
@@ -1617,15 +1646,15 @@ function csvEscape(value) {
 
 function exportCsv() {
   const deck = activeDeck();
-  const header = ['Korean', 'Vietnamese'];
-  const rows = deck.cards.map(card => [card.korean, card.vietnamese]);
+  const header = ['Korean', 'Vietnamese', 'ExampleKo'];
+  const rows = deck.cards.map(card => [card.korean, card.vietnamese, card.exampleKo || '']);
   const csv = [header, ...rows].map(row => row.map(csvEscape).join(',')).join('\n');
   download(`${deck.name.replace(/[^\p{L}\p{N}]+/gu, '-')}.csv`, '\ufeff' + csv, 'text/csv;charset=utf-8');
   toast('Đã xuất CSV.');
 }
 
 async function copyTemplate() {
-  const template = 'Korean,Vietnamese\n노력하다,nỗ lực; cố gắng\n졸업하다,tốt nghiệp';
+  const template = 'Korean,Vietnamese,ExampleKo\n노력하다,nỗ lực; cố gắng,그는 목표를 위해 노력하고 있어요.\n졸업하다,tốt nghiệp,저는 내년에 대학교를 졸업합니다.';
   await navigator.clipboard.writeText(template);
   toast('Đã copy mẫu cột Excel/CSV.');
 }
@@ -1722,7 +1751,7 @@ function bindEvents() {
   els.form.addEventListener('submit', saveCard);
   $('#clearFormBtn').addEventListener('click', clearForm);
   $('#aiSuggestBtn').addEventListener('click', suggestWithAI);
-  [els.koreanInput, els.vietnameseInput].forEach(input => input.addEventListener('input', renderPreview));
+  [els.koreanInput, els.vietnameseInput, els.exampleInput].forEach(input => input.addEventListener('input', renderPreview));
 
   $('#sortAzBtn').addEventListener('click', sortAz);
   $('#deleteSelectedBtn').addEventListener('click', deleteSelected);

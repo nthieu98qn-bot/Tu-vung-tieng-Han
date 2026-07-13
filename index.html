@@ -7,10 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260709-sheets1" />
+  <link rel="stylesheet" href="styles.css?v=20260709-example1" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script defer src="google-sheets-config.js?v=20260709-sheets1"></script>
-  <script defer src="app.js?v=20260709-sheets1"></script>
+  <script defer src="google-sheets-config.js?v=20260709-example1"></script>
+  <script defer src="app.js?v=20260709-example1"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -74,6 +74,7 @@
             <div class="learn-question">
               <p class="face-label" id="learnPromptLabel">Tiếng Hàn</p>
               <div class="korean-word" id="learnKorean">한국어</div>
+              <div class="example-sentence hidden" id="learnExample"></div>
               <button class="soft" id="learnSpeakBtn">🔊 Đọc từ</button>
             </div>
 
@@ -152,6 +153,7 @@
                 <div class="flash-face flash-front">
                   <p class="face-label">Tiếng Hàn</p>
                   <div class="korean-word" id="frontKorean">추가하세요</div>
+                  <div class="example-sentence hidden" id="frontExample"></div>
                 </div>
                 <div class="flash-face flash-back">
                   <p class="face-label">Nghĩa tiếng Việt</p>
@@ -233,6 +235,7 @@
             <div class="review-card-box">
               <p class="face-label">Tiếng Hàn</p>
               <div class="korean-word" id="reviewKorean">한국어</div>
+              <div class="example-sentence hidden" id="reviewExample"></div>
               <div class="review-meaning hidden" id="reviewMeaning">Nghĩa</div>
             </div>
 
@@ -275,6 +278,7 @@
             <div class="quiz-question">
               <p class="face-label">Từ tiếng Hàn</p>
               <div class="korean-word" id="quizKorean">한국어</div>
+              <div class="example-sentence hidden" id="quizExample"></div>
               <button class="soft" id="quizSpeakBtn">🔊 Đọc từ</button>
             </div>
 
@@ -318,7 +322,10 @@
             </div>
 
             <label>Nghĩa tiếng Việt *</label>
-            <textarea id="vietnameseInput" required rows="6" placeholder="Ví dụ: nỗ lực, cố gắng"></textarea>
+            <textarea id="vietnameseInput" required rows="4" placeholder="Ví dụ: nỗ lực, cố gắng"></textarea>
+
+            <label>Câu ví dụ tiếng Hàn</label>
+            <textarea id="exampleInput" rows="3" placeholder="Ví dụ: 그는 목표를 위해 노력하고 있어요."></textarea>
 
             <button class="primary full" type="submit" id="saveCardBtn">Lưu từ vựng</button>
             <p class="hint" id="aiStatus">AI cần chạy server với OPENAI_API_KEY.</p>
@@ -328,12 +335,13 @@
             <div class="panel-card large-preview">
               <p class="face-label">Xem trước</p>
               <div class="korean-word" id="previewKorean">한국어</div>
+              <div class="example-sentence hidden" id="previewExample"></div>
               <div class="meaning" id="previewMeaning">Nghĩa tiếng Việt sẽ hiện ở đây.</div>
             </div>
             <div class="panel-card">
               <h3>Gợi ý cột Excel</h3>
-              <p>File Excel nên có 2 cột: <strong>Korean</strong> và <strong>Vietnamese</strong>.</p>
-              <p>Nếu không có tiêu đề cột, app sẽ lấy cột 1 là tiếng Hàn, cột 2 là nghĩa tiếng Việt.</p>
+              <p>File Excel nên có 3 cột: <strong>Korean</strong>, <strong>Vietnamese</strong>, <strong>ExampleKo</strong>.</p>
+              <p>Nếu không có tiêu đề cột, app sẽ lấy cột 1 là tiếng Hàn, cột 2 là nghĩa tiếng Việt, cột 3 là câu ví dụ tiếng Hàn nếu có.</p>
             </div>
           </div>
         </div>

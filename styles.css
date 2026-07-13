@@ -296,6 +296,24 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .meaning { font-size: clamp(28px, 4vw, 48px); line-height: 1.22; font-weight: 800; }
 
+.example-sentence {
+  margin-top: 18px;
+  max-width: min(760px, 90%);
+  color: var(--muted);
+  font-family: "Noto Sans KR", Inter, sans-serif;
+  font-size: clamp(17px, 2.2vw, 26px);
+  font-weight: 600;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+.large-preview .example-sentence {
+  margin-top: 12px;
+  margin-bottom: 18px;
+  font-size: 18px;
+}
+
+
 .flash-actions,
 .speech-actions,
 .mode-actions {
@@ -452,7 +470,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .card-row:hover { background: #f8fafc; }
 .card-row.header { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
 .card-row input[type="checkbox"] { width: auto; }
-.card-row .ko-cell { font-family: "Noto Sans KR", Inter, sans-serif; font-weight: 800; font-size: 18px; }
+.card-row .ko-cell { font-family: "Noto Sans KR", Inter, sans-serif; }
+.card-row .ko-cell strong { display: block; font-weight: 800; font-size: 18px; }
+.card-row .ko-cell small { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; line-height: 1.35; }
 .card-row .vi-cell { color: var(--ink); }
 .row-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: #eef2ff; color: var(--primary-dark); font-weight: 900; }
